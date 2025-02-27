@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mindmap>
+    <node id="1" label="Main Topic" description="This is the root node" author="John Doe" date="2023-10-01">
+        <node id="2" label="Subtopic 1" description="First subtopic" author="Jane Doe" date="2023-10-02">
+            <node id="3" label="Detail 1" description="Detail of subtopic 1" author="Alice" date="2023-10-03"/>
+            <node id="4" label="Detail 2" description="Another detail" author="Bob" date="2023-10-04"/>
+        </node>
+        <node id="5" label="Subtopic 2" description="Second subtopic" author="John Doe" date="2023-10-05">
+            <node id="6" label="Detail 3" description="Detail of subtopic 2" author="Charlie" date="2023-10-06">
+                <node id="7" label="Sub-detail 1" description="Sub-detail of detail 3" author="Dave" date="2023-10-07"/>
+                <node id="8" label="Sub-detail 2" description="Another sub-detail" author="Eve" date="2023-10-08"/>
+            </node>
+            <node id="9" label="Detail 4" description="Another detail" author="Frank" date="2023-10-09"/>
+        </node>
+        <node id="10" label="Subtopic 3" description="Third subtopic" author="Grace" date="2023-10-10">
+            <node id="11" label="Detail 5" description="Detail of subtopic 3" author="Heidi" date="2023-10-11"/>
+            <node id="12" label="Detail 6" description="Another detail" author="Ivan" date="2023-10-12"/>
+        </node>
+    </node>
+</mindmap>

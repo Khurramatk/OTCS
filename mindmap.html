@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Mindmap with D3.js</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f4f4f9;
+        }
+        #mindmap-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .node {
+            fill: #4CAF50;
+            stroke: #388E3C;
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        .node text {
+            fill: white;
+            font-size: 12px;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+        .link {
+            stroke: #999;
+            stroke-width: 2px;
+            stroke-opacity: 0.6;
+        }
+        #sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100vh;
+            background-color: white;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            transition: right 0.3s ease;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        #sidebar.open {
+            right: 0;
+        }
+        #sidebar h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="mindmap-container"></div>
+    <div id="sidebar">
+        <h3>Node Details</h3>
+        <p><strong>Label:</strong> <span id="node-label"></span></p>
+        <p><strong>Description:</strong> <span id="node-description"></span></p>
+        <p><strong>Author:</strong> <span id="node-author"></span></p>
+        <p><strong>Date:</strong> <span id="node-date"></span></p>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        // Load and parse the XML file
+        async function loadXMLDoc(filename) {
+            const response = await fetch(filename);
+            const text = await response.text();
+            const parser = new DOMParser();
+            return parser.parseFromString(text, "application/xml");
+        }
+
+        // Recursive function to build the graph data
+        function buildGraphData(node, parentId = null) {
+            const id = node.getAttribute("id");
+            const label = node.getAttribute("label");
+            const description = node.getAttribute("description");
+            const author = node.getAttribute("author");
+            const date = node.getAttribute("date");
+
+            const graphNode = { id, label, description, author, date };
+            const links = [];
+            const children = node.querySelectorAll(":scope > node");
+
+            if (parentId !== null) {
+                links.push({ source: parentId, target: id });
+            }
+
+            children.forEach(child => {
+                const childData = buildGraphData(child, id);
+                graphNode.children = graphNode.children || [];
+                graphNode.children.push(childData.node);
+                links.push(...childData.links);
+            });
+
+            return { node: graphNode, links };
+        }
+
+        // Flatten the hierarchical graph data into a flat list of nodes and links
+        function flattenGraphData(graphData) {
+            const nodes = [];
+            const links = [];
+
+            function recurse(node, parentId = null) {
+                nodes.push(node);
+                if (parentId !== null) {
+                    links.push({ source: parentId, target: node.id });
+                }
+                if (node.children) {
+                    node.children.forEach(child => recurse(child, node.id));
+                }
+            }
+
+            recurse(graphData.node);
+            return { nodes, links };
+        }
+
+        // Main function to render the mindmap
+        async function renderMindmap() {
+            const xml = await loadXMLDoc("data.xml");
+            const rootNode = xml.querySelector("mindmap > node");
+            const { node: graphData, links: graphLinks } = buildGraphData(rootNode);
+
+            // Flatten the graph data
+            const { nodes, links } = flattenGraphData({ node: graphData, links: graphLinks });
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const svg = d3.select("#mindmap-container")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            const link = svg.append("g")
+                .selectAll(".link")
+                .data(links)
+                .enter()
+                .append("line")
+                .attr("class", "link");
+
+            const node = svg.append("g")
+                .selectAll(".node")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("circle")
+                .attr("r", 20)
+                .on("click", (event, d) => {
+                    toggleChildren(d);
+                    showMetadata(d);
+                });
+
+            node.append("text")
+                .text(d => d.label)
+                .attr("dy", 5);
+
+            simulation.on("tick", () => {
+                link.attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            function toggleChildren(d) {
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                update();
+            }
+
+            function showMetadata(d) {
+                document.getElementById("node-label").textContent = d.label;
+                document.getElementById("node-description").textContent = d.description || "N/A";
+                document.getElementById("node-author").textContent = d.author || "N/A";
+                document.getElementById("node-date").textContent = d.date || "N/A";
+                document.getElementById("sidebar").classList.add("open");
+            }
+
+            function update() {
+                const updatedNodes = flattenGraphData({ node: graphData, links: graphLinks }).nodes;
+                const updatedLinks = flattenGraphData({ node: graphData, links: graphLinks }).links;
+
+                node.data(updatedNodes, d => d.id);
+                link.data(updatedLinks);
+
+                simulation.nodes(updatedNodes);
+                simulation.force("link").links(updatedLinks);
+                simulation.alpha(0.3).restart();
+            }
+        }
+
+        // Run the renderMindmap function when the page loads
+        window.onload = renderMindmap;
+    </script>
+</body>
+</html>
